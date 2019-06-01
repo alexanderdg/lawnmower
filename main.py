@@ -1,4 +1,5 @@
 from CANdriver import CANdriver
+from CANwrapper import CANwrapper
 import time
 import threading
 import signal
@@ -11,21 +12,15 @@ channel = 'can0'
 class CANwatcher(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
-        self.candriver = CANdriver()
+        #self.canwrapper = CANwrapper()
         self.shutdown_flag = threading.Event()
 
     def run(self):
         print('Thread #%s started' % self.ident)
-        self.candriver.drive(1,100,0)
-        self.candriver.drive(2,100,0)
-        #CANdriver.drive(1,100,0)
-        #CANdriver.drive(2, 100, 0)
-        time.sleep(1)
-        self.candriver.coastBrake(1)
-        self.candriver.coastBrake(2)
-        self.candriver.readCurrent(1)
+        #result = self.canwrapper.drive1(100, 1)
+        #print("return of drive function {}", result)
         while not self.shutdown_flag.is_set():
-            self.candriver.readCanBus()
+            time.sleep(1)
             # ... Clean shutdown code here ...
         print('Thread #%s stopped' % self.ident)
 
@@ -42,18 +37,31 @@ def service_shutdown(signum, frame):
 def main():
     signal.signal(signal.SIGTERM, service_shutdown)
     signal.signal(signal.SIGINT, service_shutdown)
-
+    canwrapper = CANwrapper()
     print('Starting main program')
     try:
-        j1 = CANwatcher()
-        j1.start()
+        #j1 = CANwatcher()
+        #j1.start()
+
+        result = canwrapper.drive2(100, 1)
+        print("return of drive function {}", result)
         while True:
-            time.sleep(1)
+            value = canwrapper.getCurrent2()
+            value2 = canwrapper.getSpeed2()
+            value3 = canwrapper.getAWatchdog2()
+            value4 = canwrapper.getDistance2()
+            print("Printed current : %.4f", value)
+            print("Printed speed : %4d", value2)
+            print("Printed watchdog : %1d", value3)
+            print("Printed distance : %1d", value4)
+            time.sleep(0.1)
 
     except ServiceExit:
-        j1.shutdown_flag.set()
-        j1.join()
-
+        #j1.shutdown_flag.set()
+        #j1.join()
+        pass
+    canwrapper.dBrake1()
+    canwrapper.dBrake2()
     print('Exiting main program')
 
 
