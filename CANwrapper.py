@@ -6,6 +6,7 @@ class CANwrapper:
     TIMEOUT = 50
     def __init__(self):
         self.candriver = CANdriver()
+        self.candriver.deamon = True
         self.candriver.start()
 
     def raise_timeout(signum, frame):
