@@ -1,7 +1,5 @@
-from CANdriver import CANdriver
 from CANwrapper import CANwrapper
 import time
-import threading
 import signal
 
 bustype = 'socketcan'
@@ -26,7 +24,8 @@ def main():
         #j1.start()
 
         result = canwrapper.drive2(100, 1)
-        print("return of drive function {}", result)
+        result = canwrapper.drive1(100, 1)
+        #print("return of drive function {}", result)
         while True:
             value = canwrapper.getCurrent2()
             value2 = canwrapper.getSpeed2()
@@ -36,10 +35,10 @@ def main():
             value6 = canwrapper.getSpeed1()
             value7 = canwrapper.getAWatchdog1()
             value8 = canwrapper.getDistance1()
-            print("Printed current 1: ", value5, " 2: ", value)
+            print("Printed current 1: %.2f 2: %.2f" % (value5, value))
             print("Printed speed 1: ", value6, " 2: ", value2)
-            print("Printed watchdog 1: ", value7, " 3: ", value3)
-            print("Printed distance 1: ", value8, " 4: ", value4)
+            print("Printed watchdog 1: ", value7, " 2: ", value3)
+            print("Printed distance 1: ", value8, " 2: ", value4)
             time.sleep(0.1)
 
     except ServiceExit:
