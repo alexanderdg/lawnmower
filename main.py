@@ -27,6 +27,11 @@ def main():
         #print("return of drive function {}", result)
         while True:
             motion.printDiagnostics()
+            if motion.getLeftCurrent() > 1.0 or motion.getRightCurrent() > 1.0:
+                motion.dynamicBrake()
+                time.sleep(3)
+            else:
+                motion.turnLeft(0.5)
             time.sleep(0.1)
 
     except ServiceExit:

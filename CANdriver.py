@@ -53,92 +53,95 @@ class CANdriver(Thread):
     def readCanBus(self):
         for message in self.bus:
             #print(message)
-            if message.arbitration_id == 0:
+            try:
+                if message.arbitration_id == 0:
 
-                if message.data[1] == COAST_BRAKE:
-                    ack = message.data[2]
-                    if message.data[0] == 1:
-                        self.ACK_CBRAKE_1 = ack
-                    elif message.data[0] == 2:
-                        self.ACK_CBRAKE_2 = ack
-
-                elif message.data[1] == DYNAMIC_BRAKE:
-                    ack = message.data[2]
-                    if message.data[0] == 1:
-                        self.ACK_DBRAKE_1 = ack
-                    elif message.data[0] == 2:
-                        self.ACK_DBRAKE_2 = ack
-
-                elif message.data[1] == SET_CONTROLLED_SPEED:
-                    ack = message.data[2]
-                    if message.data[0] == 1:
-                        self.ACK_SETCS1 = ack
-                    elif message.data[0] == 2:
-                        self.ACK_SETCS2 = ack
-
-                elif message.data[1] == GET_CURRENT:
-                    msbcurrent = message.data[2]
-                    lsbcurrent = message.data[3]
-                    dcurrent = (msbcurrent << 8) + lsbcurrent
-                    if message.data[0] == 1:
-                        self.CURRENT1 = dcurrent / 10000.0
-                    elif message.data[0] == 2:
-                        self.CURRENT2 = dcurrent / 10000.0
-
-                elif message.data[1] == GET_HALL_SENSOR:
-                    speed = message.data[2]
-                    if message.data[0] == 1:
-                        self.SPEED1 = speed
-                    elif message.data[0] == 2:
-                        self.SPEED2 = speed
-
-                elif message.data[1] == ERR_MOSFETDRIVER:
-                    error = message.data[2]
-                    if message.data[0] == 1:
-                        self.ERRDRIVER1 = error
-                    elif message.data[0] == 2:
-                        self.ERRDRIVER2 = error
-
-                elif message.data[1] == ANALOG_WATCHDOG:
-                    watchdog = message.data[2]
-                    if message.data[0] == 1:
-                        self.WATCHDOG1 = watchdog
-                    elif message.data[0] == 2:
-                        self.WATCHDOG2 = watchdog
-
-                elif message.data[1] == SET_CONTROLLED_DISTANCE:
-                    result = message.data[2]
-                    msbdistance = message.data[3]
-                    lsbdistance = message.data[4]
-                    distance = (msbdistance << 8) + lsbdistance
-                    if result == 2:
+                    if message.data[1] == COAST_BRAKE:
+                        ack = message.data[2]
                         if message.data[0] == 1:
-                            self.status_setDistance1 = distance
+                            self.ACK_CBRAKE_1 = ack
                         elif message.data[0] == 2:
-                            self.status_setDistance2 = distance
-                    elif result == 1 or result == 2:
-                        if message.data[0] == 1:
-                            self.status_setDistance1 = 0
-                        elif message.data[0] == 2:
-                            self.status_setDistance2 = 0
+                            self.ACK_CBRAKE_2 = ack
 
-                elif message.data[1] == GET_HALL_COUNT:
-                    part = message.data[2]
-                    if part == 0:
-                        part1 = message.data[3]
-                        part2 = message.data[4]
-                        part3 = message.data[5]
-                        part4 = message.data[6]
-                        distance = part1 + (part2 << 8) + (part3 << 16) + (part4 << 24)
+                    elif message.data[1] == DYNAMIC_BRAKE:
+                        ack = message.data[2]
                         if message.data[0] == 1:
-                            self.driveDistance1 = distance
+                            self.ACK_DBRAKE_1 = ack
                         elif message.data[0] == 2:
-                            self.driveDistance2 = distance
-                    elif part == 1:
+                            self.ACK_DBRAKE_2 = ack
+
+                    elif message.data[1] == SET_CONTROLLED_SPEED:
+                        ack = message.data[2]
                         if message.data[0] == 1:
-                            self.statusDriveDistance1 = 1
+                            self.ACK_SETCS1 = ack
                         elif message.data[0] == 2:
-                            self.statusDriveDistance2 = 1
+                            self.ACK_SETCS2 = ack
+
+                    elif message.data[1] == GET_CURRENT:
+                        msbcurrent = message.data[2]
+                        lsbcurrent = message.data[3]
+                        dcurrent = (msbcurrent << 8) + lsbcurrent
+                        if message.data[0] == 1:
+                            self.CURRENT1 = dcurrent / 10000.0
+                        elif message.data[0] == 2:
+                            self.CURRENT2 = dcurrent / 10000.0
+
+                    elif message.data[1] == GET_HALL_SENSOR:
+                        speed = message.data[2]
+                        if message.data[0] == 1:
+                            self.SPEED1 = speed
+                        elif message.data[0] == 2:
+                            self.SPEED2 = speed
+
+                    elif message.data[1] == ERR_MOSFETDRIVER:
+                        error = message.data[2]
+                        if message.data[0] == 1:
+                            self.ERRDRIVER1 = error
+                        elif message.data[0] == 2:
+                            self.ERRDRIVER2 = error
+
+                    elif message.data[1] == ANALOG_WATCHDOG:
+                        watchdog = message.data[2]
+                        if message.data[0] == 1:
+                            self.WATCHDOG1 = watchdog
+                        elif message.data[0] == 2:
+                            self.WATCHDOG2 = watchdog
+
+                    elif message.data[1] == SET_CONTROLLED_DISTANCE:
+                        result = message.data[2]
+                        msbdistance = message.data[3]
+                        lsbdistance = message.data[4]
+                        distance = (msbdistance << 8) + lsbdistance
+                        if result == 2:
+                            if message.data[0] == 1:
+                                self.status_setDistance1 = distance
+                            elif message.data[0] == 2:
+                                self.status_setDistance2 = distance
+                        elif result == 1 or result == 2:
+                            if message.data[0] == 1:
+                                self.status_setDistance1 = 0
+                            elif message.data[0] == 2:
+                                self.status_setDistance2 = 0
+
+                    elif message.data[1] == GET_HALL_COUNT:
+                        part = message.data[2]
+                        if part == 0:
+                            part1 = message.data[3]
+                            part2 = message.data[4]
+                            part3 = message.data[5]
+                            part4 = message.data[6]
+                            distance = part1 + (part2 << 8) + (part3 << 16) + (part4 << 24)
+                            if message.data[0] == 1:
+                                self.driveDistance1 = distance
+                            elif message.data[0] == 2:
+                                self.driveDistance2 = distance
+                        elif part == 1:
+                            if message.data[0] == 1:
+                                self.statusDriveDistance1 = 1
+                            elif message.data[0] == 2:
+                                self.statusDriveDistance2 = 1
+            except:
+                print("Fout gebeurd tijdens het ontvangen van de CAN data")
 
 
 
