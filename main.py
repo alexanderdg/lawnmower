@@ -1,4 +1,7 @@
+import os
+
 from MotionController import MotionController
+from IOcontroller import IOcontroller
 import time
 import signal
 
@@ -17,21 +20,27 @@ def service_shutdown(signum, frame):
 def main():
     signal.signal(signal.SIGTERM, service_shutdown)
     signal.signal(signal.SIGINT, service_shutdown)
+    #os.system("mpg123 /share/Sourcecode/lawnmower/WAV\ files/StartingMoving.mp3")
     motion = MotionController()
+    io = IOcontroller()
     print('Starting main program')
     try:
         #j1 = CANwatcher()
         #j1.start()
 
-        motion.turnLeft(0.5)
+        motion.turnRight(0.5)
+        #motion.turn90Right()
+        #time.sleep(200)
+        print("Functie is afgelopen!!!!!!!!!!!!!")
         #print("return of drive function {}", result)
         while True:
             motion.printDiagnostics()
-            if motion.getLeftCurrent() > 1.0 or motion.getRightCurrent() > 1.0:
+            if motion.getLeftCurrent() > 1.0 or motion.getRightCurrent() > 1.0 or io.readPresureSensorRight() > 100 or io.readPresureSensorLeft() > 100:
                 motion.dynamicBrake()
                 time.sleep(3)
             else:
-                motion.turnLeft(0.5)
+                motion.turnRight(0.5)
+
             time.sleep(0.1)
 
     except ServiceExit:

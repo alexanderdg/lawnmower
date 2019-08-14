@@ -11,6 +11,20 @@ class MotionController:
         radiusWheel = DIAMETER_WHEEL / 2000.0
         self.perimeterWheel = 2 * math.pi * radiusWheel
 
+    def driveDistanceLeft(self):
+        self.canwrapper.driveDistance1(10000,50,1)
+
+    def driveDistanceRight(self):
+        self.canwrapper.driveDistance2(10000, 50, 1)
+
+    def turn90Left(self):
+        self.canwrapper.driveDistance1(530, 75, 0)
+        self.canwrapper.driveDistance2(530, 75, 0)
+
+    def turn90Right(self):
+        self.canwrapper.driveDistance1(530, 75, 1)
+        self.canwrapper.driveDistance2(530, 75, 1)
+
     def turnLeft(self, speedMS):
         CPMS = self.MStoCPMSconverter(speedMS)
         result = 0
@@ -33,16 +47,37 @@ class MotionController:
         return result
 
     def getLeftSpeed(self):
-        return self.CPMStoMSconverter(self.canwrapper.getSpeed1())
+        returnValue = -1
+        timeout = 0
+        while returnValue == -1 and timeout < 5:
+            returnValue = self.canwrapper.getSpeed1()
+            timeout += 1
+        return self.CPMStoMSconverter(returnValue)
+
 
     def getRightSpeed(self):
-        return self.CPMStoMSconverter(self.canwrapper.getSpeed1())
+        returnValue = -1
+        timeout = 0
+        while returnValue == -1 and timeout < 5:
+            returnValue = self.canwrapper.getSpeed2()
+            timeout += 1
+        return self.CPMStoMSconverter(returnValue)
 
     def getLeftCurrent(self):
-        return self.canwrapper.getCurrent1()
+        returnValue = -1
+        timeout = 0
+        while returnValue == -1 and timeout < 5:
+            returnValue = self.canwrapper.getCurrent1()
+            timeout += 1
+        return returnValue
 
     def getRightCurrent(self):
-        return self.canwrapper.getCurrent2()
+        returnValue = -1
+        timeout = 0
+        while returnValue == -1 and timeout < 5:
+            returnValue = self.canwrapper.getCurrent2()
+            timeout += 1
+        return returnValue
 
     def getLeftCurrentWatchdog(self):
         return self.canwrapper.getAWatchdog1()
@@ -84,4 +119,4 @@ class MotionController:
         print("Printed current 1: %.2f 2: %.2f" % (value5, value))
         print("Printed speed 1: %.2f 2: %.2f" % (value6, value2))
         print("Printed watchdog 1: ", value7, " 2: ", value3)
-        print("Printed distance 1: ", value8, " 2: ", value4)
+        #print("Printed distance 1: ", value8, " 2: ", value4)

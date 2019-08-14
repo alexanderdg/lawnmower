@@ -3,7 +3,7 @@ import time
 import signal
 
 class CANwrapper:
-    TIMEOUT = 50
+    TIMEOUT = 100
     def __init__(self):
         self.candriver = CANdriver()
         self.candriver.deamon = True
@@ -91,6 +91,23 @@ class CANwrapper:
             time.sleep(0.00001)
             counter += 1
         return self.candriver.getSPEED2()
+
+    def driveDistance1(self, distance, speed, direction):
+        self.candriver.driveDistance(1, distance, speed, direction)
+        #counter = 0
+        #while 0 == self.candriver.getStatusDistance1() and counter < self.TIMEOUT:
+        #    time.sleep(0.1)
+        #    counter += 1
+        #return self.candriver.getStatusDistance1()
+
+    def driveDistance2(self, distance, speed, direction):
+        self.candriver.driveDistance(2, distance, speed, direction)
+        #counter = 0
+        #while 0 == self.candriver.getStatusDistance2() and counter < self.TIMEOUT:
+        #    time.sleep(0.1)
+        #    counter += 1
+        #return self.candriver.getStatusDistance2()
+
 
     def getAWatchdog1(self):
         return self.candriver.WATCHDOG1

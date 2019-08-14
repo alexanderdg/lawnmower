@@ -52,10 +52,8 @@ class CANdriver(Thread):
 
     def readCanBus(self):
         for message in self.bus:
-            #print(message)
             try:
                 if message.arbitration_id == 0:
-
                     if message.data[1] == COAST_BRAKE:
                         ack = message.data[2]
                         if message.data[0] == 1:
@@ -109,10 +107,10 @@ class CANdriver(Thread):
 
                     elif message.data[1] == SET_CONTROLLED_DISTANCE:
                         result = message.data[2]
-                        msbdistance = message.data[3]
-                        lsbdistance = message.data[4]
-                        distance = (msbdistance << 8) + lsbdistance
                         if result == 2:
+                            msbdistance = message.data[3]
+                            lsbdistance = message.data[4]
+                            distance = (msbdistance << 8) + lsbdistance
                             if message.data[0] == 1:
                                 self.status_setDistance1 = distance
                             elif message.data[0] == 2:
@@ -140,8 +138,9 @@ class CANdriver(Thread):
                                 self.statusDriveDistance1 = 1
                             elif message.data[0] == 2:
                                 self.statusDriveDistance2 = 1
-            except:
+            except Exception as e:
                 print("Fout gebeurd tijdens het ontvangen van de CAN data")
+                print(e)
 
 
 
@@ -154,6 +153,18 @@ class CANdriver(Thread):
             self.ACK_DRIVE_1 = 0
         elif motorcontroller == 2:
             self.ACK_DRIVE_2 = 0
+
+    def driveDistance(self, motorcontroller, distance, speed, direction):
+        distancelsb = distance & 0xFF
+        distancemsb = (distance >> 8) & 0xFF
+        msg = can.Message(arbitration_id=motorcontroller, data=[SET_CONTROLLED_DISTANCE, distancemsb, distancelsb, speed, direction, 0, 0, 0],
+                          extended_id=False)
+        self.bus.send(msg)
+        if motorcontroller == 1:
+            self.statusDriveDistance1 = 0
+        elif motorcontroller == 2:
+            self.statusDriveDistance2 = 0
+
 
     def dynamicBrake(self, motorcontroller):
         msg = can.Message(arbitration_id=motorcontroller, data=[DYNAMIC_BRAKE], extended_id=False)
@@ -236,3 +247,9 @@ class CANdriver(Thread):
 
     def getWATCHDOG2(self):
         return self.WATCHDOG2
+
+    def getStatusDistance1(self):
+        return self.statusDriveDistance1
+
+    def getStatusDistance2(self):
+        return self.statusDriveDistance2
