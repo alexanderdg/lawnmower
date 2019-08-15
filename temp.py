@@ -1,16 +1,18 @@
-from IOcontroller import IOcontroller
 import time
+import paho.mqtt.client as mqtt
 
-io = IOcontroller()
-io.setLed(0,2,0)
-while 1:
-	temp1 = io.readPresureSensorLeft()
-	temp2 = io.readPresureSensorRight()
-	#temp3 = io.readDistanceSensor3()
-	#temp4 = io.readDistanceSensor4()
-	print(temp1)
-	print(temp2)
-	#print(temp3)
-	#print(temp4)
-	print(" ----------------")
-	time.sleep(0.2)
+def on_connect(client, userdata, flags, rc):
+  print("Connected with result code "+str(rc))
+  client.subscribe("currentLeft")
+
+def on_message(client, userdata, msg):
+  p = msg.payload.decode()
+  print(p)
+
+
+client = mqtt.Client()
+client.connect("robot.local",1883,60)
+
+client.on_connect = on_connect
+client.on_message = on_message
+client.loop_forever()

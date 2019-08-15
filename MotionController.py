@@ -88,13 +88,17 @@ class MotionController:
     def reverse(self, speedMS):
         CPMS = self.MStoCPMSconverter(speedMS)
         result = 0
-        if self.canwrapper.drive1(CPMS, 0) != -1:
+        if self.canwrapper.drive1(CPMS, 0) != -1 and self.canwrapper.drive2(CPMS, 1) != -1:
             result = 1
         return result
 
     def dynamicBrake(self):
         self.canwrapper.dBrake1()
         self.canwrapper.dBrake2()
+
+    def coastBrake(self):
+        self.canwrapper.cBrake1()
+        self.canwrapper.cBrake2()
 
     def MStoCPMSconverter(self, speedS):
         RPS = speedS / self.perimeterWheel
@@ -106,6 +110,12 @@ class MotionController:
         RPS = countS / (ENCODER_COUNTS_PER_REVOLUTION/4)
         speedS = RPS * self.perimeterWheel
         return speedS
+
+    def getDistanceLeft(self):
+        return self.canwrapper.getDistance1()
+
+    def getDistanceRight(self):
+        return self.canwrapper.getDistance2()
 
     def printDiagnostics(self):
         value = self.getRightCurrent()
