@@ -69,6 +69,8 @@ class MotionController:
         while returnValue == -1 and timeout < 5:
             returnValue = self.canwrapper.getCurrent1()
             timeout += 1
+        if returnValue < 0.03:
+            returnValue = 0
         return returnValue
 
     def getRightCurrent(self):
@@ -77,6 +79,8 @@ class MotionController:
         while returnValue == -1 and timeout < 5:
             returnValue = self.canwrapper.getCurrent2()
             timeout += 1
+        if returnValue < 0.03:
+            returnValue = 0
         return returnValue
 
     def getLeftCurrentWatchdog(self):
@@ -116,6 +120,35 @@ class MotionController:
 
     def getDistanceRight(self):
         return self.canwrapper.getDistance2()
+
+    def selfTest(self):
+        diagnostics = 9
+        oldDistanceLeft = self.getDistanceLeft()
+        oldDistanceRight = self.getDistanceRight()
+        self.turnLeft(0.3)
+        time.sleep(0.5)
+        currentLeft = self.getLeftCurrent()
+        currentRight = self.getRightCurrent()
+        newDistanceLeft = self.getDistanceLeft()
+        newDistanceRight = self.getDistanceRight()
+        self.coastBrake()
+        if currentLeft < 0.05:
+            diagnostics = 1
+            print("Linker motor is niet aangesloten")
+        elif currentRight < 0.05:
+            diagnostics = 2
+            print("Rechter motor is niet aangesloten")
+        elif newDistanceLeft - oldDistanceLeft < 10:
+            diagnostics = 3
+            print("Encoder van de linker motor werkt niet")
+        elif newDistanceRight - oldDistanceRight < 10:
+            diagnostics = 4
+            print("Encoder van de rechter motor werkt niet")
+        else:
+            diagnostics = 0
+            print("Selftest van de motoren was in orde")
+        return diagnostics
+
 
     def printDiagnostics(self):
         value = self.getRightCurrent()

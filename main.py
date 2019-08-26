@@ -64,10 +64,13 @@ def main():
     motion = MotionController()
     battery = Battery()
     print('Starting main program')
+    ts = 0
     try:
         j1 = MQTTloop()
         j1.start()
-
+        motion.selfTest()
+        io.selfTest()
+        battery.selfTest()
         #motion.turn90Right()
         #time.sleep(200)
         #print("return of drive function {}", result)
@@ -78,6 +81,14 @@ def main():
             RightSpeed = motion.getRightSpeed()
             PressureSensorLeft = io.readPresureSensorLeft()
             PressureSensorRight = io.readPresureSensorRight()
+            distance1 = io.readDistanceSensor1()
+            distance1 = io.readDistanceSensor2()
+            distance1 = io.readDistanceSensor3()
+            distance1 = io.readDistanceSensor4()
+            Perimeter = io.readPerimeterAvg()
+            #print(time.time()- ts)
+            ts = time.time()
+            #print(Perimeter)
             client.publish("currentLeft", "%.2f" % LeftCurrent)
             client.publish("currentRight", "%.2f" % RightCurrent)
             client.publish("speedLeft", "%.2f" % LeftSpeed)
@@ -90,21 +101,26 @@ def main():
             client.publish("batteryCurrent", battery.readCurrent())
             client.publish("batteryPower", battery.readPower())
             if(runBool == 1):
-                if LeftCurrent > 1.0 or RightCurrent > 1.0 or PressureSensorRight > 60 or PressureSensorLeft > 60:
+                if LeftCurrent > 1.2 or RightCurrent > 1.2 or PressureSensorRight > 100 or PressureSensorLeft > 100 or Perimeter > 300:
                     motion.dynamicBrake()
                     time.sleep(3)
                     motion.reverse(0.5)
                     time.sleep(1)
+                    motion.coastBrake()
+                    time.sleep(0.5)
                     motion.turn90Right()
                     time.sleep(3)
                     motion.forward(0.5)
+                elif Perimeter > 100:
+                    motion.forward(0.2)
 
                 else:
                     motion.forward(0.5)
             else:
                 motion.coastBrake()
+                #time.sleep(0.5)
 
-            time.sleep(0.1)
+            #time.sleep(0.001)
 
     except ServiceExit:
         j1.shutdown_flag.set()

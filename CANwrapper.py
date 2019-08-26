@@ -3,7 +3,7 @@ import time
 import signal
 
 class CANwrapper:
-    TIMEOUT = 100
+    TIMEOUT = 50
     def __init__(self):
         self.candriver = CANdriver()
         self.candriver.deamon = True

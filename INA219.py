@@ -22,7 +22,7 @@ class Battery:
         voltage = "-1"
         try:
             voltage = "{:.2f}".format(self.ina.voltage())
-        except DeviceRangeError as e:
+        except Exception as e:
             print(e)
         return voltage
 
@@ -30,6 +30,13 @@ class Battery:
         power = "-1"
         try:
             power = "{:.2f}".format(self.ina.power() / 1000.0)
-        except DeviceRangeError as e:
+        except Exception as e:
             print(e)
         return power
+
+    def selfTest(self):
+        diagnostics = 9
+        if self.readPower() != -1:
+            diagnostics = 0
+            print("INA219 is in orde")
+        return diagnostics
