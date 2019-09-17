@@ -1,4 +1,5 @@
 import can
+import time
 from threading import Thread
 
 bustype = 'socketcan'
@@ -138,6 +139,7 @@ class CANdriver(Thread):
                                 self.statusDriveDistance1 = 1
                             elif message.data[0] == 2:
                                 self.statusDriveDistance2 = 1
+                time.sleep(0.0001)
             except Exception as e:
                 print("Fout gebeurd tijdens het ontvangen van de CAN data")
                 print(e)

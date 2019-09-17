@@ -2,6 +2,7 @@ import paho.mqtt.client as mqtt
 from MotionController import MotionController
 from IOcontroller import IOcontroller
 from INA219 import Battery
+from StateMachine import StateImp
 import time
 import signal
 import threading
@@ -9,7 +10,6 @@ import threading
 bustype = 'socketcan'
 channel = 'can0'
 client = mqtt.Client()
-io = IOcontroller()
 global runBool
 runBool = 0
 
@@ -39,7 +39,8 @@ def on_message(client, userdata, msg):
         global runBool
         p = msg.payload.decode()
         if(msg.topic == "ledRed"):
-            io.setLed(int(p), 0, 0)
+            #io.setLed(int(p), 0, 0)
+            print("temp")
         elif(msg.topic == "runBool"):
             if(p == "True"):
                 runBool = 1
@@ -56,78 +57,31 @@ def service_shutdown(signum, frame):
 def main():
     signal.signal(signal.SIGTERM, service_shutdown)
     signal.signal(signal.SIGINT, service_shutdown)
-    client.on_connect = on_connect
-    client.on_message = on_message
-    client.connect("localhost", 1883, 60)
+    #client.on_connect = on_connect
+    #client.on_message = on_message
+    #client.connect("localhost", 1883, 60)
     #client.loop_forever()
     #os.system("mpg123 /share/Sourcecode/lawnmower/WAV\ files/StartingMoving.mp3")
-    motion = MotionController()
-    battery = Battery()
     print('Starting main program')
     ts = 0
     try:
-        j1 = MQTTloop()
-        j1.start()
-        motion.selfTest()
-        io.selfTest()
-        battery.selfTest()
+        #j1 = MQTTloop()
+        #j1.start()
+        temp = StateImp()
+
+
         #motion.turn90Right()
         #time.sleep(200)
         #print("return of drive function {}", result)
         while True:
-            LeftCurrent = motion.getLeftCurrent()
-            RightCurrent = motion.getRightCurrent()
-            LeftSpeed = motion.getLeftSpeed()
-            RightSpeed = motion.getRightSpeed()
-            PressureSensorLeft = io.readPresureSensorLeft()
-            PressureSensorRight = io.readPresureSensorRight()
-            distance1 = io.readDistanceSensor1()
-            distance1 = io.readDistanceSensor2()
-            distance1 = io.readDistanceSensor3()
-            distance1 = io.readDistanceSensor4()
-            Perimeter = io.readPerimeterAvg()
-            #print(time.time()- ts)
-            ts = time.time()
-            #print(Perimeter)
-            client.publish("currentLeft", "%.2f" % LeftCurrent)
-            client.publish("currentRight", "%.2f" % RightCurrent)
-            client.publish("speedLeft", "%.2f" % LeftSpeed)
-            client.publish("speedRight", "%.2f" % RightSpeed)
-            client.publish("distanceLeft", motion.getDistanceLeft())
-            client.publish("distanceRight", motion.getDistanceRight())
-            client.publish("pressureLeft", PressureSensorLeft)
-            client.publish("pressureRight", PressureSensorRight)
-            client.publish("batteryVoltage", battery.readVoltage())
-            client.publish("batteryCurrent", battery.readCurrent())
-            client.publish("batteryPower", battery.readPower())
-            if(runBool == 1):
-                if LeftCurrent > 1.2 or RightCurrent > 1.2 or PressureSensorRight > 100 or PressureSensorLeft > 100 or Perimeter > 300:
-                    motion.dynamicBrake()
-                    time.sleep(3)
-                    motion.reverse(0.5)
-                    time.sleep(1)
-                    motion.coastBrake()
-                    time.sleep(0.5)
-                    motion.turn90Right()
-                    time.sleep(3)
-                    motion.forward(0.5)
-                elif Perimeter > 100:
-                    motion.forward(0.2)
-
-                else:
-                    motion.forward(0.5)
-            else:
-                motion.coastBrake()
-                #time.sleep(0.5)
-
-            #time.sleep(0.001)
+            temp.runStatemachine()
+            time.sleep(0.02)
 
     except ServiceExit:
-        j1.shutdown_flag.set()
-        j1.join()
+        temp.stop()
         pass
 
-    motion.dynamicBrake()
+    #motion.dynamicBrake()
     print('Exiting main program')
 
 
