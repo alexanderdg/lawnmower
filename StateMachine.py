@@ -1,10 +1,14 @@
 import paho.mqtt.client as mqtt
+import json
 from statemachine import StateMachine, State
 from IOcontroller import IOcontroller
 from MotionController import MotionController
 from INA219 import Battery
 from threading import Thread
 import time
+
+client = mqtt.Client()
+
 
 class Run(object):
     def __init__(self, manager):
@@ -52,6 +56,56 @@ class Break(object):
             print("run break state")
             self.timestamp = timestamp
 
+class Stop(object):
+    def __init__(self, manager):
+        self.manager = manager
+        self.timestamp = 0
+
+    def enterState(self):
+        print("Enter Stop state")
+        self.manager.motion.coastBrake()
+
+    def run(self):
+        timestamp = time.time()
+        if (timestamp - self.timestamp) > 0.4:
+            print("run stop state")
+            self.timestamp = timestamp
+
+class ManualControl(object):
+    def __init__(self, manager):
+        self.manager = manager
+        self.timestamp = 0
+        self.typerun = "S"
+        self.speed = 0.5
+
+    def enterState(self):
+        print("Enter Manual Control state")
+        self.runManualControl()
+
+    def setSpeed(self, speed):
+        self.speed = speed
+
+    def setManualControl(self, typerun):
+        self.typerun = typerun
+
+    def runManualControl(self):
+        if self.typerun == "S":
+            self.manager.motion.dynamicBrake()
+        elif self.typerun == "F":
+            self.manager.motion.forward(self.speed)
+        elif self.typerun == "B":
+            self.manager.motion.backward(self.speed)
+        elif self.typerun == "L":
+            self.manager.motion.turnLeft(self.speed)
+        elif self.typerun == "R":
+            self.manager.motion.turnRight(self.speed)
+
+    def run(self):
+        timestamp = time.time()
+        if (timestamp - self.timestamp) > 0.4:
+            print("run manual control state")
+            self.runManualControl()
+            self.timestamp = timestamp
 
 
 
@@ -76,33 +130,43 @@ class StateImp(Thread, StateMachine):
     motion = MotionController()
     ioController = IOcontroller()
     battery = Battery()
-    client = mqtt.Client()
     state = "INIT"
     def __init__(self):
         Thread.__init__(self)
         IOcom = Thread(name='IOcom', target=self.IOthread)
         CANcom = Thread(name='CANcom', target=self.CANthread)
         testthread = Thread(name='testhread', target=self.MQTTthread)
+        #MQTTpol = Thread(name="MQTTpol", target=self.MQTTpol)
         self.runstate = Run(self)
         self.breakstate = Break(self)
-        self.nextState(self.runstate)
+        self.stopstate = Stop(self)
+        self.manualcontrol = ManualControl(self)
+        self.nextState(self.stopstate)
         testthread.setDaemon(True)
         IOcom.setDaemon(True)
         CANcom.setDaemon(True)
+        #MQTTpol.setDaemon(True)
         testthread.start()
         IOcom.start()
         CANcom.start()
-        self.client.connect("localhost", 1883, 60)
+        #MQTTpol.start()
+        client.connect("localhost", 1883, 60)
 
     def testThread(self):
         while True:
             print("run testthread");
             time.sleep(1)
 
+    def MQTTpol(self):
+        while True:
+            print("MQTTpol thread")
+            #client.loop_forever()
+            time.sleep(0.04)
+
     def IOthread(self):
         while True:
             ts = time.time()
-            self.perimeterValue = self.ioController.readPerimeterMagn()
+            self.perimeterValue = self.ioController.readPerimeterAvg()
             self.distance1 = self.ioController.readDistanceSensor1()
             self.distance2 = self.ioController.readDistanceSensor2()
             self.distance3 = self.ioController.readDistanceSensor3()
@@ -124,8 +188,8 @@ class StateImp(Thread, StateMachine):
             self.rightMotorCurrent = self.motion.getRightCurrent()
             self.leftMotorSpeed = self.motion.getLeftSpeed()
             self.rightMotorSpeed = self.motion.getRightSpeed()
-            self.leftMotorDistance = self.motion.getDistanceLeft()
-            self.rightMotorDistance = self.motion.getDistanceRight()
+            #self.leftMotorDistance = self.motion.getDistanceLeft()
+            #self.rightMotorDistance = self.motion.getDistanceRight()
             ta = time.time()
             #print("CAN thread")
             time.sleep(0.01)
@@ -134,20 +198,23 @@ class StateImp(Thread, StateMachine):
     def MQTTthread(self):
         while True:
             ts = time.time()
-            self.client.publish("diagnostics", "%.2f:%.2f:%.2f:%.2f:%4d:%4d:%s" % (self.leftMotorCurrent, self.rightMotorCurrent, self.leftMotorSpeed, self.rightMotorSpeed, self.pressureSensorLeft, self.pressureSensorRight, self.batteryVoltage))
-            #self.client.publish("currentLeft", "%.2f" % (self.leftMotorCurrent))
-            #self.client.publish("currentRight", "%.2f" % self.rightMotorCurrent)
-            #self.client.publish("speedLeft", "%.2f" % self.leftMotorSpeed)
-            #self.client.publish("speedRight", "%.2f" % self.rightMotorSpeed)
-            #self.client.publish("distanceLeft", self.leftMotorDistance)
-            #self.client.publish("distanceRight", self.rightMotorDistance)
-            #self.client.publish("pressureLeft", self.pressureSensorLeft)
-            #self.client.publish("pressureRight", self.pressureSensorRight)
-            #self.client.publish("batteryVoltage", self.batteryVoltage)
-            #self.client.publish("batteryCurrent", self.batteryCurrent)
-            #self.client.publish("batteryPower", self.batteryPower)
+            x = {}
+            x["lmCurrent"] = "%.2f" % self.leftMotorCurrent
+            x["rmCurrent"] = "%.2f" % self.rightMotorCurrent
+            x["lmSpeed"] = "%.2f" % self.leftMotorSpeed
+            x["rmSpeed"] = "%.2f" % self.rightMotorSpeed
+            x["lmDistance"] = self.leftMotorDistance
+            x["rmDistance"] = self.rightMotorDistance
+            x["lPressure"] = self.pressureSensorLeft
+            x["rPressure"] = self.pressureSensorRight
+            x["bVoltage"] = self.batteryVoltage
+            x["bCurrent"] = self.batteryCurrent
+            x["bPower"] = self.batteryPower
+            x["perimeter"] = self.perimeterValue
+            y = json.dumps(x)
+            client.publish("diagnostics", y)
             ta = time.time()
-            time.sleep(0.02)
+            time.sleep(0.1)
             #print("MQTT thread")
             #print(ta -ts)
 
@@ -157,6 +224,7 @@ class StateImp(Thread, StateMachine):
 
     def runStatemachine(self):
         self.state.run()
+        #self.client.loop()
 
 
     def stop(self):

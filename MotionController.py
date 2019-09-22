@@ -46,6 +46,13 @@ class MotionController:
             result = 1
         return result
 
+    def backward(self, speedMS):
+        CPMS = self.MStoCPMSconverter(speedMS)
+        result = 0
+        if self.canwrapper.drive1(CPMS, 0) != -1 and self.canwrapper.drive2(CPMS, 1) != -1:
+            result = 1
+        return result
+
     def getLeftSpeed(self):
         returnValue = -1
         timeout = 0

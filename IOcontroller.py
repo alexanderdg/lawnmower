@@ -47,8 +47,8 @@ class IOcontroller:
         value = -1
         if block != None:
             value = block[0] + (block[1] << 8)
-        if block[2] != 1:
-            value = value * -1
+            if block[2] != 1:
+                value = value * -1
         return value
 
     def readPresureSensorLeft(self):
