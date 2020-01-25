@@ -1,9 +1,11 @@
-from MotionController import MotionController
+import requests
 import time
+from Perimeter import Perimeter
 
+peri = Perimeter()
 
-if __name__ == '__main__':
-    motion = MotionController()
-    while True:
-      print(motion.getRightCurrent())
-      time.sleep(1)
+print(peri.setPerimerOn())
+time.sleep(2)
+value, periCurrent, fault, status = peri.askForStatus()
+print("Peri current is " + periCurrent)
+print(peri.setPerimeterOff())

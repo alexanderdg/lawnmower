@@ -1,7 +1,4 @@
 import paho.mqtt.client as mqtt
-from MotionController import MotionController
-from IOcontroller import IOcontroller
-from INA219 import Battery
 from StateMachine import StateImp
 import time
 import signal
@@ -41,9 +38,23 @@ def on_message(client, userdata, msg):
             print("temp")
         elif(msg.topic == "runBool"):
             if(p == "True"):
-                temp.nextState(temp.runstate)
+                value = temp.peri.setPerimeterOn()
+                if value == 1:
+                    time.sleep(2)
+                    value, periCurrent, periFault, periStatus = temp.peri.askForStatus()
+                    if float(periCurrent) < 0.00:
+                        os.system("mpg123 /share/Sourcecode/lawnmower/WAV\ files/PerimeterWireBroken.mp3")
+                        temp.manager.nextState(temp.manager.stopstate)
+                    else:
+                        temp.nextState(temp.runstate)
+                else:
+                    os.system("mpg123 /share/Sourcecode/lawnmower/WAV\ files/ConnectionPerimeterLost.mp3")
+                    temp.manager.nextState(temp.manager.stopstate)
+                print(periCurrent)
             elif(p == "False"):
                 temp.nextState(temp.stopstate)
+                value = temp.peri.setPerimeterOff()
+
         elif(msg.topic == "manualForward"):
             if p == "1":
                 temp.manualcontrol.setManualControl("F")
@@ -71,6 +82,10 @@ def on_message(client, userdata, msg):
         elif (msg.topic == "manualSpeed"):
             temp.manualcontrol.setSpeed(float(p))
             temp.nextState(temp.manualcontrol)
+        elif (msg.topic == "perimeterOn"):
+            temp.peri.setPerimeterOn()
+        elif (msg.topic == "perimeterOff"):
+            temp.peri.setPerimeterOff()
 
 
 class ServiceExit(Exception):
@@ -87,7 +102,7 @@ def main():
     client.on_message = on_message
     client.connect("localhost", 1883, 60)
     #client.loop_forever()
-    os.system("mpg123 /share/Sourcecode/lawnmower/WAV\ files/StartingMoving.mp3")
+    os.system("mpg123 /share/Sourcecode/lawnmower/WAV\ files/LawnmowerStarted.mp3")
     print('Starting main program')
     ts = 0
     try:
@@ -102,6 +117,8 @@ def main():
         client.subscribe("manualLeft")
         client.subscribe("manualRight")
         client.subscribe("manualSpeed")
+        client.subscribe("perimeterOn")
+        client.subscribe("perimeterOff")
         #motion.turn90Right()
         #time.sleep(200)
         #print("return of drive function {}", result)

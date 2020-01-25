@@ -4,8 +4,10 @@ from statemachine import StateMachine, State
 from IOcontroller import IOcontroller
 from MotionController import MotionController
 from INA219 import Battery
+from Perimeter import Perimeter
 from threading import Thread
 import time
+import os
 
 client = mqtt.Client()
 
@@ -18,6 +20,10 @@ class Run(object):
 
     def enterState(self):
         print("Enter Run state")
+        self.manager.status = "Lawnmower is mowing the lawn"
+        self.manager.ioController.setLed(0, 100, 0)
+
+
 
     def run(self):
         timestamp = time.time()
@@ -25,35 +31,268 @@ class Run(object):
             print("run run state")
             self.manager.motion.forward(0.5)
             self.timestamp = timestamp
+        if (self.manager.motion.getRightCurrent() > 1.2
+            or self.manager.pressureSensorRight > 5
+            or self.manager.perimeterValue > 500):
+            self.manager.nextState(self.manager.TryLeftState)
+        if (self.manager.motion.getLeftCurrent() > 1.2
+            or self.manager.pressureSensorLeft > 5):
+            self.manager.nextState(self.manager.TryRightState)
+        elif abs(self.manager.perimeterValue) > 120:
+            self.manager.nextState(self.manager.runslow)
 
-        if self.manager.motion.getLeftCurrent() > 1.2 or self.manager.motion.getRightCurrent() > 1.2 or self.manager.pressureSensorRight > 100 or self.manager.pressureSensorLeft > 100 or self.manager.perimeterValue > 300:
-            self.manager.nextState(self.manager.breakstate)
-
-
-
-class Break(object):
+class RunSlow(object):
     def __init__(self, manager):
         self.manager = manager
         self.timestamp = 0
         #print("init start state")
 
     def enterState(self):
-        print("Enter Break state")
-        self.manager.motion.dynamicBrake()
-        time.sleep(3)
-        self.manager.motion.reverse(0.5)
-        time.sleep(1)
-        self.manager.motion.coastBrake()
-        time.sleep(0.5)
-        self.manager.motion.turn90Right()
-        time.sleep(3)
-        self.manager.motion.forward(0.5)
+        print("Enter Run Slow state")
+        self.manager.status = "Ride slow by the obstacle"
+        self.manager.ioController.setLed(100, 50, 0)
 
     def run(self):
-        self.manager.nextState(self.manager.runstate)
         timestamp = time.time()
         if (timestamp - self.timestamp) > 0.4:
-            print("run break state")
+            print("run run slow state")
+            self.manager.motion.forward(0.3)
+            self.timestamp = timestamp
+
+        if self.manager.motion.getLeftCurrent() > 1.2 or self.manager.motion.getRightCurrent() > 1.2 or self.manager.pressureSensorRight > 5 or self.manager.pressureSensorLeft > 5 or self.manager.perimeterValue > 300 or abs(self.manager.perimeterValue) > 500:
+            self.manager.nextState(self.manager.TryLeftState)
+        elif abs(self.manager.perimeterValue) < 120:
+            self.manager.nextState(self.manager.runstate)
+
+class TryLeft(object):
+    def __init__(self, manager):
+        self.manager = manager
+        self.timestamp = 0
+        self.original_timestamp = 0
+
+    def enterState(self):
+        print("Enter TryLeft state")
+        self.manager.status = "Try to avoid right obstacle by turning left"
+        self.manager.ioController.setLed(100, 0 ,0)
+        self.original_timestamp = time.time()
+
+    def run(self):
+        timestamp = time.time()
+        if (self.manager.pressureSensorLeft > 5
+            or self.manager.pressureSensorRight > 5
+            or self.manager.motion.getLeftCurrent() > 1.2
+            or self.manager.motion.getRightCurrent() > 1.2
+            or self.manager.perimeterValue > 500) and ((timestamp - self.original_timestamp) > 0.5):
+            self.manager.nextState(self.manager.TryInsteadRightState)
+        if (timestamp - self.timestamp) > 0.4:
+            print("run TryLeft state")
+            self.timestamp = timestamp
+            if timestamp - self.original_timestamp < 3:
+                self.manager.motion.dynamicBrake()
+            elif timestamp - self.original_timestamp < 4:
+                self.manager.motion.reverse(0.5)
+            elif timestamp - self.original_timestamp < 4.5:
+                self.manager.motion.coastBrake()
+            elif timestamp - self.original_timestamp < 5:
+                self.manager.motion.turn90Left()
+            elif timestamp - self.original_timestamp > 8:
+                self.manager.nextState(self.manager.runstate)
+
+
+class TryRight(object):
+    def __init__(self, manager):
+        self.manager = manager
+        self.timestamp = 0
+        self.original_timestamp = 0
+
+    def enterState(self):
+        print("run TryRight state")
+        self.manager.status = "Try to avoid left obstacle by turning right"
+        self.manager.ioController.setLed(100, 0, 0)
+        self.original_timestamp = time.time()
+
+    def run(self):
+        timestamp = time.time()
+        if (self.manager.pressureSensorLeft > 5
+            or self.manager.pressureSensorRight > 5
+            or self.manager.motion.getLeftCurrent() > 1.2
+            or self.manager.motion.getRightCurrent() > 1.2
+            or self.manager.perimeterValue > 500)and ((timestamp - self.original_timestamp) > 0.5):
+            self.manager.nextState(self.manager.TryInsteadLeftState)
+        if (timestamp - self.timestamp) > 0.4:
+            print("run TryRight state")
+            self.timestamp = timestamp
+            if timestamp - self.original_timestamp < 3:
+                self.manager.motion.dynamicBrake()
+            elif timestamp - self.original_timestamp < 4:
+                self.manager.motion.reverse(0.5)
+            elif timestamp - self.original_timestamp < 4.5:
+                self.manager.motion.coastBrake()
+            elif timestamp - self.original_timestamp < 5:
+                self.manager.motion.turn90Right()
+            elif timestamp - self.original_timestamp > 8:
+                self.manager.nextState(self.manager.runstate)
+
+
+class TryInsteadLeft(object):
+    def __init__(self, manager):
+        self.manager = manager
+        self.timestamp = 0
+        self.original_timestamp = 0
+
+    def enterState(self):
+        print("run TryInsteadLeft state")
+        self.manager.status = "Try to instead avoid obstacle by left"
+        self.manager.ioController.setLed(255, 0, 0)
+        self.original_timestamp = time.time()
+
+    def run(self):
+        timestamp = time.time()
+        if (self.manager.pressureSensorLeft > 5
+            or self.manager.pressureSensorRight > 5
+            or self.manager.motion.getLeftCurrent() > 1.2
+            or self.manager.motion.getRightCurrent() > 1.2
+            or self.manager.perimeterValue > 500)and ((timestamp - self.original_timestamp) > 0.5):
+            self.manager.nextState(self.manager.TryBackwardState)
+        if (timestamp - self.timestamp) > 0.4:
+            print("run TryInsteadLeft state")
+            self.timestamp = timestamp
+            if timestamp - self.original_timestamp < 3:
+                self.manager.motion.dynamicBrake()
+            elif timestamp - self.original_timestamp < 4:
+                self.manager.motion.reverse(0.5)
+            elif timestamp - self.original_timestamp < 4.5:
+                self.manager.motion.coastBrake()
+            elif timestamp - self.original_timestamp < 5:
+                self.manager.motion.turn90Left()
+            elif timestamp - self.original_timestamp > 8:
+                self.manager.nextState(self.manager.runstate)
+
+class TryInsteadRight(object):
+    def __init__(self, manager):
+        self.manager = manager
+        self.timestamp = 0
+        self.original_timestamp = 0
+
+    def enterState(self):
+        print("run TryInsteadRight state")
+        self.manager.status = "Try to instead avoid obstacle by right"
+        self.manager.ioController.setLed(255,0,0)
+        self.original_timestamp = time.time()
+
+    def run(self):
+        timestamp = time.time()
+        if (self.manager.pressureSensorLeft > 5
+            or self.manager.pressureSensorRight > 5
+            or self.manager.motion.getLeftCurrent() > 1.2
+            or self.manager.motion.getRightCurrent() > 1.2
+            or self.manager.perimeterValue > 500)and ((timestamp - self.original_timestamp) > 0.5):
+            self.manager.nextState(self.manager.TryBackwardState)
+        if (timestamp - self.timestamp) > 0.4:
+            print("run TryInsteadRight state")
+            self.timestamp = timestamp
+            if timestamp - self.original_timestamp < 3:
+                self.manager.motion.dynamicBrake()
+            elif timestamp - self.original_timestamp < 4:
+                self.manager.motion.reverse(0.5)
+            elif timestamp - self.original_timestamp < 4.5:
+                self.manager.motion.coastBrake()
+            elif timestamp - self.original_timestamp < 5:
+                self.manager.motion.turn90Right()
+            elif timestamp - self.original_timestamp > 8:
+                self.manager.nextState(self.manager.runstate)
+
+class TryBackward(object):
+    def __init__(self, manager):
+        self.manager = manager
+        self.timestamp = 0
+        self.original_timestamp = 0
+
+    def enterState(self):
+        print("run TryBackward State")
+        self.manager.status = "Try to avoid obstacle by riding backwards"
+        self.manager.ioController.setLed(255, 0, 0)
+        self.original_timestamp = time.time()
+
+    def run(self):
+        timestamp = time.time()
+        if (self.manager.pressureSensorLeft > 5
+            or self.manager.pressureSensorRight > 5
+            or self.manager.motion.getLeftCurrent() > 1.2
+            or self.manager.motion.getRightCurrent() > 1.2
+            or self.manager.perimeterValue > 500) and ((timestamp - self.original_timestamp) > 0.5):
+            self.manager.nextState(self.manager.stuck)
+        if (timestamp - self.timestamp) > 0.4:
+            print("run TryInsteadRight state")
+            self.timestamp = timestamp
+            if timestamp - self.original_timestamp < 3:
+                self.manager.motion.dynamicBrake()
+            elif timestamp - self.original_timestamp < 8:
+                self.manager.motion.backward(0.5)
+            elif timestamp - self.original_timestamp >= 8:
+                self.manager.nextState(self.manager.runstate)
+
+
+class TryLastTimeRight(object):
+    def __init__(self, manager):
+        self.manager = manager
+        self.timestamp = 0
+        self.original_timestamp = 0
+        #print("init start state")
+
+    def enterState(self):
+        print("Enter Break Right state")
+        self.manager.status = "Avoid obstacle by turning right"
+        self.manager.ioController.setLed(100, 0, 0)
+        self.original_timestamp = time.time()
+
+    def run(self):
+        timestamp = time.time()
+        if (timestamp - self.original_timestamp > 1) and (self.manager.motion.getLeftCurrent() > 1.2 or self.manager.motion.getRightCurrent() > 1.2 or self.manager.pressureSensorRight > 5 or self.manager.pressureSensorLeft > 5):
+            self.manager.motion.dynamicBrake()
+            self.manager.nextState(self.manager.stuck)
+        if (timestamp - self.timestamp) > 0.4:
+            if timestamp - self.original_timestamp < 3:
+                self.manager.motion.dynamicBrake()
+            elif timestamp - self.original_timestamp < 4:
+                self.manager.motion.reverse(0.5)
+            elif timestamp - self.original_timestamp < 4.5:
+                self.manager.motion.coastBrake()
+            elif timestamp - self.original_timestamp < 5:
+                self.manager.motion.turn90Right()
+            elif timestamp - self.original_timestamp > 8:
+                self.manager.nextState(self.manager.runstate)
+            print("run break right state")
+            self.timestamp = timestamp
+
+class TryLastTimeLeft(object):
+    def __init__(self, manager):
+        self.manager = manager
+        self.timestamp = 0
+        self.original_timestamp = 0
+        #print("init start state")
+
+    def enterState(self):
+        print("Enter Break Left state")
+        self.manager.status = "Avoid obstacle by turning left"
+        self.manager.ioController.setLed(100, 0, 0)
+        self.original_timestamp = time.time()
+
+    def run(self):
+        timestamp = time.time()
+        if (timestamp - self.original_timestamp > 1) and (self.manager.motion.getLeftCurrent() > 1.2 or self.manager.motion.getRightCurrent() > 1.2 or self.manager.pressureSensorRight > 5 or self.manager.pressureSensorLeft > 5):
+            self.manager.motion.dynamicBrake()
+            self.manager.nextState(self.manager.stuck)
+        if (timestamp - self.timestamp) > 0.4:
+            if timestamp - self.original_timestamp < 1:
+                self.manager.motion.dynamicBrake()
+            elif timestamp - self.original_timestamp < 2.5:
+                self.manager.motion.coastBrake()
+            elif timestamp - self.original_timestamp < 3:
+                self.manager.motion.turn90Left()
+            elif timestamp - self.original_timestamp > 6:
+                self.manager.nextState(self.manager.runstate)
+            print("run break left state")
             self.timestamp = timestamp
 
 class Stop(object):
@@ -63,12 +302,33 @@ class Stop(object):
 
     def enterState(self):
         print("Enter Stop state")
+        self.manager.status = "Lawnmower routine is stopped"
+        self.manager.ioController.setLed(0, 0, 100)
         self.manager.motion.coastBrake()
 
     def run(self):
         timestamp = time.time()
         if (timestamp - self.timestamp) > 0.4:
             print("run stop state")
+            self.timestamp = timestamp
+
+class Stuck(object):
+    def __init__(self, manager):
+        self.manager = manager
+        self.timestamp = 0
+
+    def enterState(self):
+        print("Enter Stuck state")
+        self.manager.status = "Lawnmower is blocked"
+        self.manager.ioController.setLed(0, 0, 0)
+        os.system("mpg123 /share/Sourcecode/lawnmower/WAV\ files/stuck.mp3")
+        self.manager.motion.coastBrake()
+
+    def run(self):
+        timestamp = time.time()
+        if (timestamp - self.timestamp) > 10:
+            print("run stuck state")
+            os.system("mpg123 /share/Sourcecode/lawnmower/WAV\ files/stuck.mp3")
             self.timestamp = timestamp
 
 class ManualControl(object):
@@ -80,10 +340,15 @@ class ManualControl(object):
 
     def enterState(self):
         print("Enter Manual Control state")
+        self.manager.status = "Manual control is activated"
+        self.manager.ioController.setLed(0, 0, 0)
         self.runManualControl()
 
     def setSpeed(self, speed):
         self.speed = speed
+
+    def getSpeed(self):
+        return self.speed
 
     def setManualControl(self, typerun):
         self.typerun = typerun
@@ -127,28 +392,45 @@ class StateImp(Thread, StateMachine):
     batteryVoltage  = 0.0
     batteryCurrent = 0.0
     batteryPower = 0.0
+    periCurrent = ""
+    periFault = ""
+    periStatus = ""
     motion = MotionController()
     ioController = IOcontroller()
     battery = Battery()
+    peri = Perimeter()
+    status = ""
     state = "INIT"
     def __init__(self):
         Thread.__init__(self)
         IOcom = Thread(name='IOcom', target=self.IOthread)
         CANcom = Thread(name='CANcom', target=self.CANthread)
         testthread = Thread(name='testhread', target=self.MQTTthread)
+        periThread = Thread(name='periThread', target=self.periThread)
         #MQTTpol = Thread(name="MQTTpol", target=self.MQTTpol)
         self.runstate = Run(self)
-        self.breakstate = Break(self)
+        self.TryLeftState = TryLeft(self)
+        self.TryRightState = TryRight(self)
+        self.TryInsteadLeftState = TryInsteadLeft(self)
+        self.TryInsteadRightState = TryInsteadRight(self)
+        self.TryLastTimeRightState = TryLastTimeRight(self)
+        self.TryLastTimeLeftState = TryLastTimeLeft(self)
+        self.TryBackwardState = TryBackward(self)
+        self.stuck = Stuck(self)
         self.stopstate = Stop(self)
         self.manualcontrol = ManualControl(self)
+        self.runslow = RunSlow(self)
         self.nextState(self.stopstate)
+        self.status = "wait to be started"
         testthread.setDaemon(True)
         IOcom.setDaemon(True)
         CANcom.setDaemon(True)
+        periThread.setDaemon(True)
         #MQTTpol.setDaemon(True)
         testthread.start()
         IOcom.start()
         CANcom.start()
+        periThread.start()
         #MQTTpol.start()
         client.connect("localhost", 1883, 60)
 
@@ -166,7 +448,7 @@ class StateImp(Thread, StateMachine):
     def IOthread(self):
         while True:
             ts = time.time()
-            self.perimeterValue = self.ioController.readPerimeterAvg()
+            self.perimeterValue = self.ioController.readPerimeterMagn()
             self.distance1 = self.ioController.readDistanceSensor1()
             self.distance2 = self.ioController.readDistanceSensor2()
             self.distance3 = self.ioController.readDistanceSensor3()
@@ -192,7 +474,7 @@ class StateImp(Thread, StateMachine):
             #self.rightMotorDistance = self.motion.getDistanceRight()
             ta = time.time()
             #print("CAN thread")
-            time.sleep(0.01)
+            time.sleep(0.02)
             #print(ta - ts)
 
     def MQTTthread(self):
@@ -211,12 +493,33 @@ class StateImp(Thread, StateMachine):
             x["bCurrent"] = self.batteryCurrent
             x["bPower"] = self.batteryPower
             x["perimeter"] = self.perimeterValue
+            x["distance1"] = self.distance1
+            x["distance2"] = self.distance2
+            x["distance3"] = self.distance3
+            x["distance4"] = self.distance4
+            x["status"] = self.status
+            x["periCurrent"] = self.periCurrent
+            x["periStatus"] = self.periStatus
+            x["periFault"] = self.periFault
             y = json.dumps(x)
             client.publish("diagnostics", y)
             ta = time.time()
             time.sleep(0.1)
             #print("MQTT thread")
             #print(ta -ts)
+
+    def periThread(self):
+        while True:
+                value, self.periCurrent, self.periFault, self.periStatus = self.peri.askForStatus()
+                if value != 1:
+                    if self.state == self.runstate:
+                        os.system("mpg123 /share/Sourcecode/lawnmower/WAV\ files/ConnectionPerimeterLost.mp3")
+                        self.nextState(self.stopstate)
+                elif float(self.periCurrent) < 0.00:
+                    if self.state == self.runstate:
+                        os.system("mpg123 /share/Sourcecode/lawnmower/WAV\ files/PerimeterWireBroken.mp3")
+                        self.nextState(self.stopstate)
+                time.sleep(5)
 
     def nextState(self, state):
         self.state = state

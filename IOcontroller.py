@@ -4,8 +4,12 @@ import time
 SLAVE_ADDRESS = 0x08
 
 class IOcontroller:
+    avgPressureLeft = 0
+    avgPressureRight = 0
     def __init__(self):
         self.bus = smbus.SMBus(1)
+        self.avgPressureLeft = self.readPresureSensorLeft()
+        self.avgPressureRight = self.readPresureSensorRight()
 
     def readDistanceSensor1(self):
         block = self.readDataWithRetry(2, 2)
@@ -51,19 +55,23 @@ class IOcontroller:
                 value = value * -1
         return value
 
-    def readPresureSensorLeft(self):
-        block = self.readDataWithRetry(6, 2)
-        distance = -1
-        if block != None:
-            distance = block[0] + (block[1] << 8)
-        return distance
-
     def readPresureSensorRight(self):
-        block = self.readDataWithRetry(7, 2)
-        distance = -1
+        block = self.readDataWithRetry(6, 2)
+        returnValue = -1
         if block != None:
             distance = block[0] + (block[1] << 8)
-        return distance
+            self.avgPressureRight = 0.99 * self.avgPressureRight + 0.01 * distance
+            returnValue = int(distance - self.avgPressureRight)
+        return returnValue
+
+    def readPresureSensorLeft(self):
+        block = self.readDataWithRetry(7, 2)
+        returnValue = -1
+        if block != None:
+            distance = block[0] + (block[1] << 8)
+            self.avgPressureLeft = 0.99 * self.avgPressureLeft + 0.01 * distance
+            returnValue = int(distance - self.avgPressureLeft)
+        return returnValue
 
     def selfTest(self):
         diagnostics = 9
